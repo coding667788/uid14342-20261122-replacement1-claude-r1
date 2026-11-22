@@ -1,0 +1,18 @@
+请在当前仓库实现一个 Python 3.12 命令行工具 mirror_plan，用于在隔离实验网中安排可审计的链路镜像采样。所有输入都是自定义合成 JSON。只使用标准库、SQLite 和 CPU，所有操作在本地完成，采样结果只包括授权与覆盖证明。初始仓库提供 task/PROMPT.txt。请提交实现、可直接执行的样例及自动化测试，并在 README 写明命令、字段、失败排序与复跑办法。
+
+一、时钟、对象和策略
+- 所有时刻都是范围在 0 至 10^9 的整数，区间一律左闭右开且起点小于终点。同一 JSON 中的 ID 除明确规定的修订链外互不重复，为 1 至 64 字符的 ASCII `[A-Za-z0-9_.-]+`。
+- `taps` 声明镜像点的 ID、交换设备 ID、同一物理采集器端口组。每个采样动作包含 `id, tap, collector, start, end, cost, visibility`。成本为非负整数。visibility 是动作实际会看到的流量清单，每项由 `tenant, class, label, from, to` 指定，区间必须在动作内。每个动作至少有一条清单。tap 所属端口组在同一时段只能运行一个动作，这是计划的物理约束。
+- 策略事件有连续序号 `seq`，从 1 开始，按输入列表递增。每个 `grant` 事件携带 `key, revision, tap, collector, tenant, class, label, from, to`。每个 key 的首个 revision 为 1，之后本 key 的 grant 每次加 1，后一个 grant 整段取代前一修订的作用域及时间窗。每个 `revoke` 携带 `key, revision, effective_at`，必须准确指向该 key 当时最新且尚未撤销的 grant。撤销使该修订只能覆盖 `effective_at` 之前的部分。之后的新 grant 按新内容授权。对指定 `as_of`，选择序号不大于它的最新修订及该修订的撤销，不因后续输入修改既往视图。在一个时刻允许采样，当且仅当至少一条有效授权与 tap、collector、tenant、class、label 五元组精确相等。授权不从别的租户、采集器或镜像点继承。
+- 对选中的每个动作检查所有 visibility，按规则边界切成原子时间片后，逐片验证有效授权。全动作即使只漏一个时间片也不可选。片段可由相邻或重叠授权共同覆盖。记录授权证据时，每个原子片选择按 `(key, revision)` 字节序最小的见证，并合并相邻、同见证的片段。unsafe 证据定位动作、清单项、最早未授权子段的起止及缺失五元组。
+- 输入至少有一个场景，其中 `base` 的失效列表为空。每个场景声明失效交换设备和采集器各自的精确区间，边界上设备立即恢复。覆盖要求为 `id, tenant, class, from, to, min_collectors`，`min_collectors` 为 1 至 3。每个场景、每个要求的每个原子时间片内，必须有至少该数量的不同采集器收到相符 tenant 与 class 的授权样本。只有动作、visibility、采集器和交换设备均覆盖该片时才能计数。一个采集器收到多条相符清单只算一次。不同场景使用同一组动作，故障只影响覆盖，所有动作在基础场景必须满足隐私与端口约束。
+
+二、求计划与复核
+- `python -m mirror_plan plan CASE.json` 读取 `as_of,taps,policy,candidates,requirements,scenarios`，输出 JSON。选择动作子集，先比较成本和，再比较动作数，再比较已排序动作 ID 列表的 ASCII 字节顺序。未被选择的动作成本为零，已选动作即便在故障场景失效也计原成本。空要求允许空计划。输出状态、代价、动作 ID、每个动作对应的授权证据，以及按场景和要求排序的覆盖证据。每个原子片选按 ID 排序的前 min_collectors 个有效采集器和每个采集器字节序最小的动作作见证，合并相邻的相同见证。
+- 不可行时输出 `infeasible`，附带按以下确定顺序得到的包含极小冲突集合。规则为按 ID 从大到小依次尝试删去要求，只有剩余要求仍不可行时才永久删除。每次保持原场景、策略和候选不变。对每个保留要求给出删除它后的一份可行见证，使用同一最优排序；剩下零条要求时见证为空计划。在 audit 中报告覆盖失败时，按 `(scenario_id, requirement_id, start, end)` 取首个原子片，并包含实际采集器列表。
+- `python -m mirror_plan audit CASE.json PLAN.json` 读取包含 `selected_ids` 与 `plan_digest` 的计划。重新计算授权、物理约束、覆盖与计划摘要，输出是否可行及主原因。失败优先级为结构、授权、端口、覆盖、摘要。结构错误带字段路径；授权失败按 `(action_id, tenant, class, label, visibility_from, visibility_to, hole_start, hole_end)` 取首项，覆盖失败使用上述顺序。端口冲突按 `(tap_group, overlap_start, overlap_end, action_id_1, action_id_2)` 取首个。证据和摘要不信任输入计划自报结果。摘要使用 `sha256:` 加小写十六进制，哈希对象含规范化案例及已排序动作 ID。规范化 JSON 用 `ensure_ascii=False, sort_keys=True, separators=(",", ":")` 后以 UTF-8 编码；无顺序语义的列表按各对象的 `id` 或按元组全部字段排序；policy 保持 seq 顺序。不同文件空白、字段顺序、候选顺序均得到相同摘要。
+
+三、持续入库与历史读取
+- `python -m mirror_plan record CASE.json PLAN.json --db audit.sqlite --request-id ID --expected-head N` 在事务内检查版本和写入。数据库提交号从 0 起单调递增。后续重放以工具重新计算的摘要为准，PLAN.json 的计划摘要必须与重新计算值一致。一次成功提交持久化规范化案例、动作、摘要、授权及覆盖见证和提交号。事务内同 request-id 且摘要相同，返回原提交号和同一回执，此判定先于 expected-head 检查。同 request-id 但摘要不同返回冲突。其他请求只有 expected-head 与库当前提交号相等且复核成功才能提交，新提交号只增加一次。发生异常整个事务无写入。
+- `python -m mirror_plan history --db audit.sqlite --commit N` 返回该提交的原始回执与证据。截至 N 的策略视图跟随该提交冻结的案例。对不存在的 N 给出明确错误。关闭进程后重新打开数据库必须得到相同历史。测试需要覆盖两个进程竞争同一个提交头、同 request-id 并发重放、提交前故障和提交后响应丢失；测试可使用独立的子进程夹具模拟。
+- stdout 始终是一个 UTF-8 JSON。退出码 0 表示成功或合法输入得到不可行结论；2 表示结构或字段错误；3 表示审计不通过、提交冲突或历史版本不存在。非法输入得到稳定的字段路径。约束规模为至多 26 个动作、8 个场景、40 个要求、200 个策略事件、160 个采样清单项。给出包含至少 24 个动作、6 个场景、24 个要求且会跨撤销和故障边界的可复跑规模用例，说明你为精确求解采用的裁剪或索引策略。

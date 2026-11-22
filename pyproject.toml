@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mirror-plan"
+version = "1.0.0"
+description = "Auditable link-mirror sampling planner for isolated lab networks (stdlib + SQLite only)"
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "Proprietary" }
+
+[project.scripts]
+mirror_plan = "mirror_plan.cli:main"
+
+[tool.setuptools]
+packages = ["mirror_plan"]

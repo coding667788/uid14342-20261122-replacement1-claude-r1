@@ -1,0 +1,91 @@
+{
+  "as_of": 7,
+  "taps": [
+    {"id": "tap1", "switch": "sw1", "port_group": "pg1"},
+    {"id": "tap2", "switch": "sw2", "port_group": "pg2"},
+    {"id": "tap3", "switch": "sw3", "port_group": "pg3"},
+    {"id": "tap4", "switch": "sw4", "port_group": "pg4"}
+  ],
+  "policy": [
+    {"seq": 1, "event": "grant", "key": "ka", "revision": 1, "tap": "tap1",
+     "collector": "c1", "tenant": "tna", "class": "voice", "label": "L",
+     "from": 0, "to": 1000},
+    {"seq": 2, "event": "grant", "key": "kb", "revision": 1, "tap": "tap3",
+     "collector": "c2", "tenant": "tna", "class": "voice", "label": "L",
+     "from": 0, "to": 1000},
+    {"seq": 3, "event": "grant", "key": "kc", "revision": 1, "tap": "tap2",
+     "collector": "c3", "tenant": "tnb", "class": "bulk", "label": "M",
+     "from": 0, "to": 1000},
+    {"seq": 4, "event": "grant", "key": "kd", "revision": 1, "tap": "tap4",
+     "collector": "c1", "tenant": "tna", "class": "mgmt", "label": "N",
+     "from": 0, "to": 1000},
+    {"seq": 5, "event": "grant", "key": "ke", "revision": 1, "tap": "tap2",
+     "collector": "c4", "tenant": "tna", "class": "voice", "label": "L",
+     "from": 0, "to": 1000},
+    {"seq": 6, "event": "grant", "key": "kf", "revision": 1, "tap": "tap3",
+     "collector": "c2", "tenant": "tna", "class": "voice", "label": "L",
+     "from": 0, "to": 1000},
+    {"seq": 7, "event": "revoke", "key": "kf", "revision": 1, "effective_at": 350}
+  ],
+  "candidates": [
+    {"id": "a1", "tap": "tap1", "collector": "c1", "start": 0, "end": 500,
+     "cost": 3,
+     "visibility": [
+       {"tenant": "tna", "class": "voice", "label": "L", "from": 0, "to": 300},
+       {"tenant": "tna", "class": "voice", "label": "L", "from": 300, "to": 500}
+     ]},
+    {"id": "a2", "tap": "tap3", "collector": "c2", "start": 0, "end": 900,
+     "cost": 2,
+     "visibility": [
+       {"tenant": "tna", "class": "voice", "label": "L", "from": 0, "to": 900}
+     ]},
+    {"id": "a3", "tap": "tap2", "collector": "c3", "start": 0, "end": 500,
+     "cost": 1,
+     "visibility": [
+       {"tenant": "tnb", "class": "bulk", "label": "M", "from": 0, "to": 300},
+       {"tenant": "tnb", "class": "bulk", "label": "M", "from": 300, "to": 500}
+     ]},
+    {"id": "a4", "tap": "tap1", "collector": "c1", "start": 500, "end": 900,
+     "cost": 1,
+     "visibility": [
+       {"tenant": "tna", "class": "voice", "label": "L", "from": 500, "to": 900}
+     ]},
+    {"id": "a5", "tap": "tap4", "collector": "c1", "start": 500, "end": 700,
+     "cost": 1,
+     "visibility": [
+       {"tenant": "tna", "class": "mgmt", "label": "N", "from": 500, "to": 700}
+     ]},
+    {"id": "a6", "tap": "tap2", "collector": "c4", "start": 500, "end": 900,
+     "cost": 5,
+     "visibility": [
+       {"tenant": "tna", "class": "voice", "label": "L", "from": 500, "to": 900}
+     ]},
+    {"id": "a7", "tap": "tap3", "collector": "c2", "start": 0, "end": 200,
+     "cost": 1,
+     "visibility": [
+       {"tenant": "tna", "class": "voice", "label": "Z", "from": 0, "to": 200}
+     ]},
+    {"id": "a8", "tap": "tap1", "collector": "c1", "start": 400, "end": 600,
+     "cost": 4,
+     "visibility": [
+       {"tenant": "tna", "class": "voice", "label": "L", "from": 400, "to": 600}
+     ]}
+  ],
+  "requirements": [
+    {"id": "r1", "tenant": "tna", "class": "voice", "from": 0, "to": 900,
+     "min_collectors": 2},
+    {"id": "r2", "tenant": "tnb", "class": "bulk", "from": 0, "to": 500,
+     "min_collectors": 1},
+    {"id": "r3", "tenant": "tna", "class": "mgmt", "from": 500, "to": 650,
+     "min_collectors": 1}
+  ],
+  "scenarios": [
+    {"id": "base", "switch_failures": [], "collector_failures": []},
+    {"id": "scn_c2_down",
+     "switch_failures": [],
+     "collector_failures": [{"device": "c2", "from": 600, "to": 700}]},
+    {"id": "scn_sw1_down",
+     "switch_failures": [{"device": "sw1", "from": 700, "to": 800}],
+     "collector_failures": []}
+  ]
+}

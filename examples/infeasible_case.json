@@ -1,0 +1,35 @@
+{
+  "as_of": 2,
+  "taps": [
+    {"id": "tap1", "switch": "sw1", "port_group": "pg1"}
+  ],
+  "policy": [
+    {"seq": 1, "event": "grant", "key": "ka", "revision": 1, "tap": "tap1",
+     "collector": "c1", "tenant": "tna", "class": "voice", "label": "L",
+     "from": 0, "to": 500},
+    {"seq": 2, "event": "grant", "key": "kb", "revision": 1, "tap": "tap1",
+     "collector": "c2", "tenant": "tna", "class": "voice", "label": "L",
+     "from": 0, "to": 1000}
+  ],
+  "candidates": [
+    {"id": "a1", "tap": "tap1", "collector": "c1", "start": 0, "end": 500,
+     "cost": 1,
+     "visibility": [
+       {"tenant": "tna", "class": "voice", "label": "L", "from": 0, "to": 500}
+     ]},
+    {"id": "a2", "tap": "tap1", "collector": "c2", "start": 0, "end": 500,
+     "cost": 1,
+     "visibility": [
+       {"tenant": "tna", "class": "voice", "label": "L", "from": 0, "to": 500}
+     ]}
+  ],
+  "requirements": [
+    {"id": "r1", "tenant": "tna", "class": "voice", "from": 0, "to": 500,
+     "min_collectors": 2},
+    {"id": "r2", "tenant": "tna", "class": "voice", "from": 600, "to": 900,
+     "min_collectors": 1}
+  ],
+  "scenarios": [
+    {"id": "base", "switch_failures": [], "collector_failures": []}
+  ]
+}
